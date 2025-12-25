@@ -4,9 +4,22 @@ import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import cloudinary from "./utils/cloudinary.js";
 import morgan from "morgan";
+
+// ✅ Rate limiter for live-sessions endpoint (prevent server crashes)
+const liveSessionsLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 30, // limit each IP to 30 requests per minute
+  message: {
+    error: "Too many requests to live-sessions. Please slow down.",
+    retryAfter: 60
+  },
+  standardHeaders: true, // Return rate limit info in headers
+  legacyHeaders: false,
+});
 
 // ✅ Routes imports
 import instructorRoutes from "./routes/instructorRoutes.js";
@@ -102,7 +115,7 @@ const startServer = async () => {
     app.use("/api/cart", cartRoutes);
     app.use("/api/orders", orderRoutes);
     app.use("/api/ai", aiRoutes)
-    app.use("/api/live-sessions", liveSessionRoutes);
+    app.use("/api/live-sessions", liveSessionsLimiter, liveSessionRoutes);
     // ✅ إعداد Socket.IO
     io.on("connection", (socket) => {
       console.log("🟢 User connected:", socket.id);
